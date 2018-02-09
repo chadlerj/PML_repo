@@ -1,0 +1,122 @@
+---
+title: "ML_Project"
+author: "CJ"
+date: "February 08, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Machine Learning Class Project
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set.  We are to predict the values for 20 observations in a testing (which I will call the exam set to avoid confusing with our training and testing sets) dataset.
+
+
+## Data Import
+
+We'll pull data from a local source.  I've already downloaded the data sets from their home on the Coursera webiste links.
+
+```{r}
+
+training.set <- read.csv(file = "C:/Users/chadl/Downloads/PML_Project/pml-training.csv", header = TRUE)
+
+exam.set <- read.csv(file = "C:/Users/chadl/Downloads/PML_Project/pml-testing.csv", header = TRUE)
+
+str(exam.set)
+
+
+```
+
+There seems to be quite a few variables with missing data elements in the set we need to evaluate for the exam.  It would be wise to exclude these.  I'm going to identify the variables that are all na's and drop them from our training.set so we don't need to mess with them. 
+
+## Drop bad fields
+
+```{r}
+
+purge.set <- colnames(exam.set)[colSums(is.na(exam.set)) > 0]
+cleanTraining.set <- training.set[ , !(names(training.set) %in% purge.set)]
+
+```
+
+
+After additional review of the data in the training set, I've noticed a handful of variables that have to do with when the data was caputured rather than actual measurements of the activity in question.  I'm going to drop these, too.
+
+```{r}
+
+cleanTraining2.set <- cleanTraining.set[-c(1,3:7)]
+
+```
+
+
+## Create test and train sets for modeling
+
+I plan to use the carat library
+
+```{r}
+library(caret)
+set.seed(666)
+
+randTrain <- createDataPartition(cleanTraining2.set$classe, p = 0.6, list = FALSE)
+training <- cleanTraining2.set[randTrain,]
+testing <- cleanTraining2.set[-randTrain,]
+
+
+
+```
+
+
+## Start Modeling
+
+I'm going with a GBM model as it was noted to be one of the more accurate ones (if time consuming)
+
+```{r}
+
+modFit <- train(classe ~ . , method="gbm", data=training, verbose = FALSE)
+print(modFit)
+
+```
+
+
+We can see that the results on this set get pretty accurate with results for the training set hitting around 95% accuracy for the model.
+
+Another visual
+
+```{r}
+
+train_predict <- predict(modFit, training)
+table(train_predict, training$classe)
+
+
+```
+
+Now on our testing set
+
+```{r}
+
+test_predict <- predict(modFit, testing)
+
+confusionMatrix(testing$classe, test_predict)
+
+```
+
+This seems like it gets us the accuracy we need of around 95%.  We seem to have a model accurate enough for our needs.
+
+## Exam set
+
+we will now apply the model to the exam set to get the answers we need for the exam.
+
+```{r}
+
+exam_predict <- predict(modFit, exam.set)
+
+print(exam_predict)
+
+```
+
+These results were entered in to the online exam and passed, 20 of 20.
